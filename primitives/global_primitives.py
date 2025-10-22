@@ -1,4 +1,14 @@
-def extended_euclidean_algorithm(a: int, b: int) -> [int, int, int]:
+def euclidean_algorithm(a: int, b: int) -> int:
+    if a < 0 or b < 0: raise ValueError("Extended Euclidean Algorithm: Inputs must be non-negative")
+    if a < b:
+        a, b = b, a
+    while b != 0:
+        r = a % b
+        a = b
+        b = r
+    return a
+
+def extended_euclidean_algorithm(a: int, b: int) -> list[int]:
     if a < 0 or b < 0: raise ValueError("Extended Euclidean Algorithm: Inputs must be non-negative")
     swapped = False
     if not a >= b:
@@ -8,7 +18,7 @@ def extended_euclidean_algorithm(a: int, b: int) -> [int, int, int]:
         d = a
         x = 1
         y = 0
-        return d,x,y
+        return [d,x,y]
     x2 = 1
     x1 = 0
     y2 = 0
@@ -30,13 +40,12 @@ def extended_euclidean_algorithm(a: int, b: int) -> [int, int, int]:
     d = a
     x = x2
     y = y2
-    return d,x,y if not swapped else d,y,x
+    return [d,x,y] if not swapped else [d,y,x]
 
-print(extended_euclidean_algorithm(4864, 3458))
-
-def eea_x(a: int, b: int) -> int:
+def extended_euclidean_algorithm_x(a: int, b: int) -> int:
     if a < 0 or b < 0: raise ValueError("Extended Euclidean Algorithm: Inputs must be non-negative")
-    if not a >= b: raise ValueError("First input must suceed second.")
+    if not a >= b:
+        a, b = b, a
     if b == 0:
         x = 1
         return x
@@ -53,9 +62,11 @@ def eea_x(a: int, b: int) -> int:
         x2 = x1
         x1 = x
 
-    x = x2
-    return x
+    return x2
 
-print(eea_x(4864, 3458))
+def modular_multiplicative_inverse(a: int, p: int, q: int) -> int:
+    lambdaN = ((p-1) * (q-1)) // euclidean_algorithm(p-1, q-1)
+    d = extended_euclidean_algorithm(a, lambdaN)[1]
+    return d if d >= 0 else d + lambdaN
 
-def modular_mult(): pass
+print(modular_multiplicative_inverse(17, 61, 53))

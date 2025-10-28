@@ -1,1 +1,4 @@
-print("Hello World!")
+b = 0
+
+if b != 0:
+    print(True)

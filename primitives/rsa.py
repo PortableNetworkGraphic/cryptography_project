@@ -1,7 +1,7 @@
 from sympy import randprime
 
 class RSA:
-    def __init__(self, public_key: [tuple[int, int]], private_key: [tuple[int, int]]):
+    def __init__(self, public_key: tuple[int, int], private_key: tuple[int, int]):
         if public_key is None and private_key is None:
            public_key, private_key
 

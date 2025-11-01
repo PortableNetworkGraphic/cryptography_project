@@ -1,6 +1,9 @@
 # The subroutines found in this file pad a stream of bytes to a number of bytes such that it is a multiple of the
 # block size and can be feasibly unpadded to return the initial byte stream.
 import random
+from typing import Literal
+
+from Cython.Compiler.Errors import message
 
 
 def PKCS7_pad(data: bytes, pad_size: int) -> bytes:
@@ -79,7 +82,7 @@ def ISO7816_unpad(data: bytes, pad_size: int) -> bytes:
     else:
         raise ValueError(f"Padding is inconsistent.")
 
-def SHA_pad(data: bytes, pad_size: [64, 128]) -> bytes:
+def SHA_pad(data: bytes, pad_size: Literal[64, 128]) -> bytes:
     if not isinstance(data, bytes): raise TypeError(f"Data must be bytes, not \'{type(data)}\'.")
     if not isinstance(pad_size, int): raise TypeError(f"Padding Size must be int, not \'{type(pad_size)}\'.")
     if pad_size not in [64, 128]: raise ValueError(f"Padding Size must be 512 or 1024 bits, not {pad_size}.")
@@ -89,3 +92,12 @@ def SHA_pad(data: bytes, pad_size: [64, 128]) -> bytes:
     n: int = r - (l+1) % pad_size
     data += b"\x80" + b"\x00"*n + l.to_bytes(pad_size-r)
     return data
+
+def OAEP_pad(MGF, Hash, hLen: int, k, M: bytes, mLen, L: bytes) -> bytes:
+    lHash = Hash(L)
+    PS = b"\x00" * (k-mLen*hLen-2)
+    DB = lHash + PS + b"\x01" + M
+    seed = random.randbytes(hLen)
+    dbMask = MGF(seed, k-hLen-1)
+
+    # maskedSeed =

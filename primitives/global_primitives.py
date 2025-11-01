@@ -87,27 +87,4 @@ def modular_multiplicative_inverse(a: int, p: int, q: int) -> int:
     # Account for f d is negative
     return d if d >= 0 else d + lambdaN
 
-ts = set()
 
-# e = 65537 = 2^16 + 1
-e = 2**16+1
-c = 0
-for i in range(100000):
-
-    c += 1
-
-
-    lambdaN, p, q = 0, None, None
-
-    while lambdaN < e or euclidean_algorithm(e, lambdaN) != 1:
-        # Generate random prime numbers
-        p = sympy.randprime(0, 2 ** 20)
-        q = sympy.randprime(0, 2 ** 20)
-
-        lambdaN = ((p-1) * (q-1)) // euclidean_algorithm(p-1, q-1)
-
-    # Compares my own calculated value to an assumed valid calculator for the inverse mod lambdaN
-    ts.add(modular_multiplicative_inverse(e, p, q) == TEMPmodinv(e, lambdaN))
-
-
-print(ts)

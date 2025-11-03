@@ -1,6 +1,4 @@
 import random
-from pydoc import plaintext
-
 from sympy import nextprime
 from typing import Literal
 from global_primitives import *

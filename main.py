@@ -1,3 +1,5 @@
+print(0x428a2f98)
+
 import ctypes
 
 lib = ctypes.CDLL(r"C:\Users\danal\PycharmProjects\cryptography\primitives\cprims.dll")

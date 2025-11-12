@@ -1,5 +1,9 @@
+import math
 import random
+import string
+import sys
 from typing import Literal
+from inspect import stack
 from time import perf_counter as pc
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,7 +12,22 @@ import ctypes
 from global_primitives import right_rotate as rotr
 lib = ctypes.CDLL("./cprims.dll")
 
-class RoundState(ctypes.Structure):
+class SHA256State(ctypes.Structure):
+    _fields_ = [
+        ("a", ctypes.c_uint32),
+        ("b", ctypes.c_uint32),
+        ("c", ctypes.c_uint32),
+        ("d", ctypes.c_uint32),
+        ("e", ctypes.c_uint32),
+        ("f", ctypes.c_uint32),
+        ("g", ctypes.c_uint32),
+        ("h", ctypes.c_uint32),
+    ]
+
+    def as_tuple(self):
+        return self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h
+
+class SHA512State(ctypes.Structure):
     _fields_ = [
         ("a", ctypes.c_uint64),
         ("b", ctypes.c_uint64),
@@ -23,10 +42,14 @@ class RoundState(ctypes.Structure):
     def as_tuple(self):
         return self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h
 
-lib.round1.argtypes = (RoundState, ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int)
-lib.round1.restype = RoundState
+#                      Hash State , version        ,  num  chunks, chunk bytes    , quotient       , input size
+lib.SHA256.argtypes = (SHA256State, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_int)
+lib.SHA256.restype = SHA256State
 
-class SHA2:
+lib.SHA512.argtypes = (SHA512State, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint64, ctypes.c_int)
+lib.SHA512.restype = SHA512State
+
+class SHA2_OLD:
 
     _input_sizes = {
         "224":64,
@@ -96,9 +119,9 @@ class SHA2:
         self._digest = b""
         self.version = version
         self.kind = "256" if self.version in ["224","256"] else "512"
-        self.input_size = SHA2._input_sizes[self.version]
-        self.h = SHA2.initial_hash_values[self.version]
-        self.k = SHA2.round_constants[self.kind]
+        self.input_size = SHA2_OLD._input_sizes[self.version]
+        self.h = SHA2_OLD.initial_hash_values[self.version]
+        self.k = SHA2_OLD.round_constants[self.kind]
         self.word_size = self.input_size//2
         self.quotient = 2**self.word_size - 1
         self.update1(initial_message)
@@ -191,7 +214,7 @@ class SHA2:
 
             ht = self.h
             for i in range({64: 64, 128: 80}[_is]):
-                ht = lib.round1(RoundState(*ht), w[i], k[i], int(self.kind)).as_tuple()
+                ht = lib.round1(SHA512State(*ht), w[i], k[i], int(self.kind)).as_tuple()
                 # ht = self.round1(*ht, w[i], k[i])
             self.h = tuple([(ht[i] + self.h[i]) % 2**self.word_size for i in range(8)])
         self._digest = _digest
@@ -229,18 +252,75 @@ class SHA2:
             hash_value >>= (512 - 256)
         return hash_value
 
-print(hex(SHA2("512", b"").digest())=="0xcf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e")
+class SHA2_NEW:
 
-profiler = Profiler()
+    versions = ["224", "256", "384", "512", "512/224", "512/256"]
 
-f = SHA2("512").update1
-profiler.start()
-for i in range(1000):
-    f(random.randbytes(10**4))
+    # The initial eight hash values.
+    initial_hash_values = {
+        "224": (0xc1059ed8, 0x367cd507, 0x3070dd17, 0xf70e5939, 0xffc00b31, 0x68581511, 0x64f98fa7, 0xbefa4fa4),
+        "256": (0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19),
+        "384": (0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17, 0x152fecd8f70e5939, 0x67332667ffc00b31, 0x8eb44a8768581511, 0xdb0c2e0d64f98fa7, 0x47b5481dbefa4fa4),
+        "512": (0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b, 0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f, 0x1f83d9abfb41bd6b, 0x5be0cd19137e2179),
+        "512/224": (0x8C3D37C819544DA2, 0x73E1996689DCD4D6, 0x1DFAB7AE32FF9C82, 0x679DD514582F9FCF, 0x0F6D2B697BD44DA8, 0x77E36F7304C48942, 0x3F9D85A86A1D36C8, 0x1112E6AD91D692A1),
+        "512/256": (0x22312194FC2BF72C, 0x9F555FA3C84C64C2, 0x2393B86B6F53B151, 0x963877195940EABD, 0x96283EE2A88EFFE3, 0xBE5E1E2553863992, 0x2B0199FC2C85B8AA, 0x0EB72DDC81C52CA2)
+    }
 
-profiler.stop()
-profiler.print()
-profiler.open_in_browser()
+    upper_input_size = 2 ** 20
+
+    def __init__(self, version: str):
+
+        # Ensure the version selected is valid.
+        if version not in SHA2_NEW.versions:
+            raise ValueError("Error: Invalid SHA version")
+
+        self.kind = "256" if version in ["224", "256"] else "512"
+
+        # Assign various constants depending on the version.
+        if self.kind == "256":
+            self.word_size = 4
+            self.hash_input_size = 64
+            self.round_num = 64
+        elif self.kind == "512":
+            self.word_size = 8
+            self.hash_input_size = 128
+            self.round_num = 80
+        self.version = version
+        self.output_size = int(version[:-3])//8
+        self.buffer: bytes = b""
+        self.message_length = 0
+        self.hash_state = SHA2_NEW.initial_hash_values[version]
+        self.hash_state = SHA256State(*self.hash_state) if self.kind == "256" else SHA512State(*self.hash_state)
+        self.quotient = 2**self.word_size - 1
+
+
+    def c_update(self, message: bytes, n_chunks: int = None) -> None:
+        if n_chunks is None: n_chunks = SHA2_NEW.upper_input_size
+        if len(message) % SHA2_NEW.upper_input_size != 0:
+            raise ValueError("c_update")
+        if self.kind == "256":
+            #                    Hash State , version        ,  num  chunks, chunk bytes    , quotient       , input size
+            lib.SHA256.argtypes = (SHA256State, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_int)
+            lib.SHA256.restype = SHA256State
+            self.hash_state = lib.SHA256(self.hash_state, self.version, n_chunks, message, self.quotient, self.hash_input_size)
+
+
+
+
+    def update(self, message: bytes):
+        self.buffer += message
+        self.message_length += len(message)
+        bl = len(self.buffer)
+
+        un = bl // self.upper_input_size
+        ln = (bl % self.upper_input_size) // self.hash_input_size
+
+
+        for i in range(un):
+            self.c_update(self.buffer[i*SHA2_NEW.upper_input_size:(i+1)*SHA2_NEW.upper_input_size])
+
+        self.c_update(self.buffer[un:un+self.hash_input_size*ln])
+
 
 
 """def func_test(func, col):

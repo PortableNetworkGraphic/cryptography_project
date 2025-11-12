@@ -3,9 +3,6 @@
 import random
 from typing import Literal
 
-from Cython.Compiler.Errors import message
-
-
 def PKCS7_pad(data: bytes, pad_size: int) -> bytes:
     if not isinstance(data, bytes): raise TypeError(f"Data must be bytes, not \'{type(data)}\'.")
     if not isinstance(pad_size, int): raise TypeError(f"Padding Size must be int, not \'{type(pad_size)}\'.")

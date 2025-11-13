@@ -7,16 +7,24 @@ import ctypes
 from global_primitives import right_rotate as rotr
 lib = ctypes.CDLL("./cprims.dll")
 
+class Hashstate32(ctypes.Structure):
+    _fields_ = [("h", ctypes.c_uint32 * 8)]
 
-Int32Array8 = ctypes.c_int32 * 8
-Int64Array8 = ctypes.c_int64 * 8
+    def as_tuple(self):
+        return [self.h[i] for i in range(8)]
 
-#                      Hash State , version        ,  num  chunks, chunk bytes    , quotient       , input size
-#lib.SHA256.argtypes = (Int32Array8, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32, ctypes.c_int)
-#lib.SHA256.restype = Int32Array8
+class Hashstate64(ctypes.Structure):
+    _fields_ = [("h", ctypes.c_uint64 * 8)]
 
-#lib.SHA512.argtypes = (Int64Array8, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint64, ctypes.c_int)
-#lib.SHA512.restype = Int32Array8
+    def as_tuple(self):
+        return [self.h[i] for i in range(8)]
+
+#                      Hash State , num chunks  , chunk bytes
+lib.SHA256.argtypes = (Hashstate32, ctypes.c_int, ctypes.POINTER(ctypes.c_ubyte))
+lib.SHA256.restype = Hashstate32
+
+#lib.SHA512.argtypes = (Hashstate32,  ctypes.c_int, ctypes.c_char_p)
+#lib.SHA512.restype = Hashstate64
 
 class SHA2_OLD:
 
@@ -234,7 +242,7 @@ class SHA2_NEW:
         "512/256": (0x22312194FC2BF72C, 0x9F555FA3C84C64C2, 0x2393B86B6F53B151, 0x963877195940EABD, 0x96283EE2A88EFFE3, 0xBE5E1E2553863992, 0x2B0199FC2C85B8AA, 0x0EB72DDC81C52CA2)
     }
 
-    upper_input_size = 2 ** 10
+    upper_input_size = 2 ** 8
 
     def __init__(self, version: str):
 
@@ -258,37 +266,108 @@ class SHA2_NEW:
         self.buffer: bytes = b""
         self.message_length = 0
         self.hash_state = SHA2_NEW.initial_hash_values[version]
-        self.hash_state = Int32Array8(*self.hash_state) if self.kind == "256" else Int64Array8(*self.hash_state)
+        self.hash_state = Hashstate32(self.hash_state) if self.kind == "256" else Hashstate64(self.hash_state)
         self.quotient = 2**self.word_size - 1
 
+    def SHA_pad(self, data: bytes, pad_size: int) -> bytes:
+        if pad_size not in (64, 128): raise ValueError("Size must be 64 or 128")
+        if not isinstance(data, bytes): raise TypeError(f"Data must be bytes, not \'{type(data)}\'.")
+        if not isinstance(pad_size, int): raise TypeError(f"Padding Size must be int, not \'{type(pad_size)}\'.")
+        if pad_size not in [64, 128]: raise ValueError(f"Padding Size must be 512 or 1024 bits, not {pad_size}.")
+        r = {64: 56, 128: 112}[pad_size]
+        l = self.message_length * 8
+        if l > 2 ** pad_size: raise ValueError("Data must be less than 2^64 bits.")
+        data += b"\x80"
+        while len(data) % pad_size != r: data += b"\x00"
+        return data + l.to_bytes(pad_size - r, "big")
 
     def c_update(self, message: bytes, n_chunks: int = None) -> None:
-        print(message, len(message))
         if n_chunks is None: n_chunks = SHA2_NEW.upper_input_size // self.hash_input_size
-        if len(message) % n_chunks != 0:
+        if len(message) != n_chunks*self.hash_input_size or len(message) == 0:
             raise ValueError("c_update")
-
-
-
-
+        #                                Hash State     , n_chunks, c bytes
+        if self.kind == "256":
+            c_msg = (ctypes.c_ubyte * len(message)).from_buffer_copy(message)
+            self.hash_state = lib.SHA256(self.hash_state, n_chunks, c_msg)
 
     def update(self, message: bytes):
+
+        # Updates the buffer and message length with the new mesage.
         self.buffer += message
         self.message_length += len(message)
         bl = len(self.buffer)
 
+        # Calculates the number of full upper inputs are to be fed into the c update.
         un = bl // self.upper_input_size
+        # Calculates the number of
         ln = (bl % self.upper_input_size) // self.hash_input_size
-
-        print(bl, un, ln)
 
         for i in range(un):
             self.c_update(self.buffer[i*SHA2_NEW.upper_input_size:(i+1)*SHA2_NEW.upper_input_size])
 
-        self.c_update(self.buffer[un*SHA2_NEW.upper_input_size:un*SHA2_NEW.upper_input_size+self.hash_input_size*ln], self.hash_input_size)
+        self.buffer = self.buffer[un * SHA2_NEW.upper_input_size:]
 
-        self.buffer = self.buffer[un*SHA2_NEW.upper_input_size+self.hash_input_size*ln:]
-        print(self.buffer, len(self.buffer))
+        if ln:
+            self.c_update(self.buffer[:self.hash_input_size*ln], ln)
 
-s = SHA2_NEW("256")
-s.update(b"""The sun had barely crested the horizon when the first birds began their tentative songs, weaving a tapestry of sound that filled the quiet morning air. Leaves, still damp with dew, shimmered faintly in the weak light, and a faint breeze rustled the branches, carrying with it the scent of damp earth and growing things. Somewhere in the distance, a dog barked, sharp and sudden, breaking the fragile peace, and then silence fell again, punctuated only by the occasional call of a crow. In the fields beyond, the grass swayed like a restless ocean, each blade catching the light in its own particular way, as if competing for attention in a silent ballet of green and gold. Inside a small cottage on the edge of the forest, a kettle whistled insistently on the stove. Steam curled upward in spirals, momentarily catching the sunlight that filtered through the narrow window, before dissolving into the warmth of the room. On the counter, a stack of books teetered dangerously, their pages worn and dog-eared, each one a doorway to a different time and place. A cat stretched lazily on the windowsill, its fur catching the light in flashes of orange and white, blinking slowly at the world beyond as if measuring its worth. Outside, the path that led through the trees was dappled with shadows, moving slowly as the day grew and the sun shifted its gaze across the land. Further along the road, a horse grazed quietly, its ears twitching at the smallest sounds, alert to the life that unfolded around it. The rhythm of hooves on the soft earth was absent, yet one could imagine it, steady and reassuring, marking the passage of hours and the slow march of time. A child's laughter echoed faintly from somewhere unseen, a bright, musical thread running through the otherwise muted colors of morning, and a breeze carried the distant scent of bread baking, promising warmth and sustenance. Clouds gathered lazily in the sky, their shapes shifting and twisting, like smoke caught in a gentle wind, and in that shifting light, the world seemed to hold its breath, waiting for something just beyond the horizon. Meanwhile, a small stream wound its way through the valley, sparkling in the early sun, murmuring over stones and roots in a language older than words. Dragonflies skimmed its surface, delicate and precise, while shadows of fish flickered beneath, restless and fleeting. The air carried the scent of water and moss, the promise of coolness in the heat of midday, and the occasional rustle of reeds as creatures unseen moved among them. Above, a hawk circled silently, wings stretched wide, eyes sharp, surveying the land with unflinching focus, a sentinel in the quiet chaos of life. The earth seemed alive in every inch, every crack and corner, buzzing, shifting, breathing in rhythms unseen yet deeply felt, and in that quiet, relentless energy, the world moved forward, imperceptibly and inexorably.""")
+        self.buffer = self.buffer[self.hash_input_size*ln:]
+
+    def digest(self) -> int:
+
+        pad = self.SHA_pad(self.buffer, self.hash_input_size)
+        self.c_update(pad, len(pad)//self.hash_input_size)
+
+        digest = 0
+        if self.kind == "256":
+            for hi in self.hash_state.as_tuple():
+                digest = (digest << self.word_size*8) | hi
+
+
+        return digest
+
+
+
+ts = set()
+st = random.randbytes(1000)
+import hashlib
+
+for i in range(1000):
+    s = SHA2_NEW("256")
+    s.update(st)
+
+    ts.add(hex(s.digest()) == hex(int.from_bytes(hashlib.sha256(st).digest())))
+
+print(ts)
+
+"""def func_test(func, col):
+    times = []
+    for i in range(100):
+        l = random.randint(1, 10**4)
+        m = random.randbytes(l)
+        t1 = pc()
+        func(m)
+        t2 = pc()
+        times.append((l, t2-t1))
+
+    print(times)
+
+
+    x, y = [], []
+    for size, time in times:
+        x.append(size)
+        y.append(time)
+
+    x, y = np.array(x), np.array(y)
+    print(np.polyfit(x,y, 1)[0]**-1)
+
+    ax.scatter(x, y, color=col)
+    ax.set_ylim(ymin=0)
+    ax.set_xlim(xmin=0)
+"""
+# f, ax = plt.subplots(1)
+
+# ax.legend(["initial code"])
+# ax.set_xlabel("Number of random bytes")
+# ax.set_ylabel("Time taken (seconds)")
+
+# plt.show()

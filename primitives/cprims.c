@@ -1,16 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-
-typedef struct {
-    uint64_t a;
-    uint64_t b;
-    uint64_t c;
-    uint64_t d;
-    uint64_t e;
-    uint64_t f;
-    uint64_t g;
-    uint64_t h;
-} RoundState;
+#include <ctype.h>
 
 static const uint32_t SHA256_round_constants[64] = {
             0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5,
@@ -53,7 +43,93 @@ static const uint64_t SHA512_round_constants[80] = {
             0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817
         };
 
-int main() {
-    printf("%d", SHA256_round_constants[0]);
-    return 0;
+typedef struct {
+	uint32_t h[8];
+} Hashstate32;
+
+typedef struct {
+	uint64_t h[8];
+} Hashstate64;
+
+uint32_t rotr32(uint32_t x, int n) {
+	return (x >> n | (x << (32-n)));
+}
+
+uint64_t rotr64(uint64_t x, int n) {
+	return (x >> n | (x << (64-n)));
+}
+
+//                                    Hash State   , nchunk, chunk bytes
+__declspec(dllexport) Hashstate32 SHA256(Hashstate32 hs, int nc, unsigned char *cbytes) {
+	
+	// 2d array where the row is the iteration of the hash input, and
+	// the column is the word for the input.
+	uint32_t w[64] = {0};
+	for(int i=0; i<nc; i++) {
+		// because of the way SHA256 works, only 16 of the 64 round
+		// words are generated here.
+		for(int j=0; j<16; j++){
+			int offset = i*64+j*4;
+			w[j] = 
+				((uint32_t)cbytes[offset] << 24) |
+				((uint32_t)cbytes[offset + 1] << 16) |
+				((uint32_t)cbytes[offset + 2] << 8) |
+				((uint32_t)cbytes[offset + 3]);
+			if (offset + 3 >= nc * 64) {
+				printf("Out of bounds read at %d\n", offset);
+				break;
+				}
+		}
+		
+		for(int j=16; j<64; j++) {
+			uint32_t x = w[j-2];
+			uint32_t y = w[j-15];
+			
+			w[j] = 
+				(rotr32(x, 17) ^ rotr32(x, 19) ^ (x >> 10)) +
+				w[j-7] +
+				(rotr32(y, 7) ^ rotr32(y, 18) ^ (y >> 3)) +
+				w[j-16];
+		}
+		
+		uint32_t a = hs.h[0];
+		uint32_t b = hs.h[1];
+		uint32_t c = hs.h[2];
+		uint32_t d = hs.h[3];
+		
+		uint32_t e = hs.h[4];
+		uint32_t f = hs.h[5];
+		uint32_t g = hs.h[6];
+		uint32_t h = hs.h[7];
+		
+		for(int j=0; j<64; j++) {
+			
+			uint32_t ch = (e & f) ^ (~e & g);
+			uint32_t s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
+			uint32_t t1 = w[j] + SHA256_round_constants[j] + h + ch + s1;
+			uint32_t s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
+			
+			uint32_t t2 = (((a & b) ^ (a & c) ^ (b & c)) + s0);
+			h = g;
+			g = f;
+			f = e;
+			e = t1 + d;
+			d = c;
+			c = b;
+			b = a;
+			a = t1 + t2;
+		}
+		
+		hs.h[0] += a;
+		hs.h[1] += b;
+		hs.h[2] += c;
+		hs.h[3] += d;
+		
+		hs.h[4] += e;
+		hs.h[5] += f;
+		hs.h[6] += g;
+		hs.h[7] += h;
+		
+	}
+	return hs;
 }

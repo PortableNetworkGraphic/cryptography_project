@@ -59,7 +59,7 @@ uint64_t rotr64(uint64_t x, int n) {
 	return (x >> n | (x << (64-n)));
 }
 
-//                                    Hash State   , nchunk, chunk bytes
+//                                        Hash State   , nchunk, chunk bytes
 __declspec(dllexport) Hashstate32 SHA256(Hashstate32 hs, int nc, unsigned char *cbytes) {
 	
 	// 2d array where the row is the iteration of the hash input, and
@@ -110,6 +110,85 @@ __declspec(dllexport) Hashstate32 SHA256(Hashstate32 hs, int nc, unsigned char *
 			uint32_t s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
 			
 			uint32_t t2 = (((a & b) ^ (a & c) ^ (b & c)) + s0);
+			h = g;
+			g = f;
+			f = e;
+			e = t1 + d;
+			d = c;
+			c = b;
+			b = a;
+			a = t1 + t2;
+		}
+		
+		hs.h[0] += a;
+		hs.h[1] += b;
+		hs.h[2] += c;
+		hs.h[3] += d;
+		
+		hs.h[4] += e;
+		hs.h[5] += f;
+		hs.h[6] += g;
+		hs.h[7] += h;
+		
+	}
+	return hs;
+}
+
+//                                        Hash State   , nchunk, chunk bytes
+__declspec(dllexport) Hashstate64 SHA512(Hashstate64 hs, int nc, unsigned char *cbytes) {
+	
+	// 2d array where the row is the iteration of the hash input, and
+	// the column is the word for the input.
+	uint64_t w[80] = {0};
+	for(int i=0; i<nc; i++) {
+		// because of the way SHA256 works, only 16 of the 64 round
+		// words are generated here.
+		for(int j=0; j<16; j++){
+			int offset = i*128+j*8;
+			w[j] = 
+				((uint64_t)cbytes[offset] << 56) |
+				((uint64_t)cbytes[offset + 1] << 48) |
+				((uint64_t)cbytes[offset + 2] << 40) |
+				((uint64_t)cbytes[offset + 3] << 32) |
+				((uint64_t)cbytes[offset + 4] << 24) |
+				((uint64_t)cbytes[offset + 5] << 16) |
+				((uint64_t)cbytes[offset + 6] << 8) |
+				((uint64_t)cbytes[offset + 7]);
+			if (offset + 7 >= nc * 128) {
+				printf("Out of bounds read at %d\n", offset);
+				break;
+				}
+		}
+		
+		for(int j=16; j<80; j++) {
+			uint64_t x = w[j-2];
+			uint64_t y = w[j-15];
+			
+			w[j] = 
+				(rotr64(x, 19) ^ rotr64(x, 61) ^ (x >> 6)) +
+				w[j-7] +
+				(rotr64(y, 1) ^ rotr64(y, 8) ^ (y >> 7)) +
+				w[j-16];
+		}
+		
+		uint64_t a = hs.h[0];
+		uint64_t b = hs.h[1];
+		uint64_t c = hs.h[2];
+		uint64_t d = hs.h[3];
+		
+		uint64_t e = hs.h[4];
+		uint64_t f = hs.h[5];
+		uint64_t g = hs.h[6];
+		uint64_t h = hs.h[7];
+		
+		for(int j=0; j<80; j++) {
+			
+			uint64_t ch = (e & f) ^ (~e & g);
+			uint64_t s1 = rotr64(e, 14) ^ rotr64(e, 18) ^ rotr64(e, 41);
+			uint64_t t1 = w[j] + SHA512_round_constants[j] + h + ch + s1;
+			uint64_t s0 = rotr64(a, 28) ^ rotr64(a, 34) ^ rotr64(a, 39);
+			
+			uint64_t t2 = (((a & b) ^ (a & c) ^ (b & c)) + s0);
 			h = g;
 			g = f;
 			f = e;

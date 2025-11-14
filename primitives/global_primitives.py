@@ -86,11 +86,3 @@ def modular_multiplicative_inverse(a: int, p: int, q: int) -> int:
 
     # Account for f d is negative
     return d if d >= 0 else d + lambdaN
-
-def left_rotate(m: int, n: int, size: int) -> int:
-    n = n & size - 1
-    return (m << n | (m >> (size-n))) & (2**size-1)
-
-def right_rotate(m: int, n: int, size: int) -> int:
-    n = n & size - 1
-    return (m >> n | (m << (size-n))) & (2**size-1)

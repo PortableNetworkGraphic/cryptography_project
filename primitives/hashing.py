@@ -9,6 +9,7 @@ from typing import Literal
 import ctypes
 lib = ctypes.CDLL("./hashing_prims.dll")
 import matplotlib.pyplot as plt
+from pyinstrument import Profiler
 
 class Hashstate32(ctypes.Structure):
     _fields_ = [("h", ctypes.c_uint32 * 8)]
@@ -29,7 +30,7 @@ lib.SHA256.restype = Hashstate32
 lib.SHA512.argtypes = (Hashstate64, ctypes.c_int, ctypes.POINTER(ctypes.c_ubyte))
 lib.SHA512.restype = Hashstate64
 
-class SHA2_NEW:
+class SHA2:
 
     versions = ["224", "256", "384", "512", "512/224", "512/256"]
 
@@ -45,10 +46,10 @@ class SHA2_NEW:
 
     upper_input_size = 10 * 2 ** 20
 
-    def __init__(self, version: str):
+    def __init__(self, version: str, initial_buffer: bytes=b""):
 
         # Ensure the version selected is valid.
-        if version not in SHA2_NEW.versions:
+        if version not in SHA2.versions:
             raise ValueError("Error: Invalid SHA version")
 
         self.kind = "256" if version in ["224", "256"] else "512"
@@ -64,11 +65,12 @@ class SHA2_NEW:
             self.round_num = 80
         self.version = version
         self.output_size = int(version[-3:])//8
-        self.buffer: bytes = b""
-        self.message_length = 0
-        self.hash_state = SHA2_NEW.initial_hash_values[version]
+        self.buffer = initial_buffer
+        self.message_length = len(initial_buffer)
+        self.hash_state = SHA2.initial_hash_values[version]
         self.hash_state = Hashstate32(self.hash_state) if self.kind == "256" else Hashstate64(self.hash_state)
         self.quotient = 2**self.word_size - 1
+        self.update(b"")
 
     def SHA_pad(self, data: bytes, pad_size: int) -> bytes:
         if pad_size not in (64, 128): raise ValueError("Size must be 64 or 128")
@@ -83,7 +85,7 @@ class SHA2_NEW:
         return data + l.to_bytes(pad_size - r, "big")
 
     def c_update(self, message: bytes, n_chunks: int = None) -> None:
-        if n_chunks is None: n_chunks = SHA2_NEW.upper_input_size // self.hash_input_size
+        if n_chunks is None: n_chunks = SHA2.upper_input_size // self.hash_input_size
         if len(message) != n_chunks*self.hash_input_size or len(message) == 0:
             raise ValueError("c_update")
         #                                Hash State     , n_chunks, c bytes
@@ -106,16 +108,16 @@ class SHA2_NEW:
         ln = (bl % self.upper_input_size) // self.hash_input_size
 
         for i in range(un):
-            self.c_update(self.buffer[i*SHA2_NEW.upper_input_size:(i+1)*SHA2_NEW.upper_input_size])
+            self.c_update(self.buffer[i * SHA2.upper_input_size:(i + 1) * SHA2.upper_input_size])
 
-        self.buffer = self.buffer[un * SHA2_NEW.upper_input_size:]
+        self.buffer = self.buffer[un * SHA2.upper_input_size:]
 
         if ln:
             self.c_update(self.buffer[:self.hash_input_size*ln], ln)
 
         self.buffer = self.buffer[self.hash_input_size*ln:]
 
-    def digest(self) -> int:
+    def digest(self) -> bytes:
 
         pad = self.SHA_pad(self.buffer, self.hash_input_size)
         temp_hs = self.hash_state
@@ -141,10 +143,9 @@ class SHA2_NEW:
 
         self.hash_state = temp_hs
 
-        return digest
+        return digest.to_bytes(self.output_size, byteorder="big")
 
-
-def func_test(func, col):
+"""def func_test(func, col):
     times = []
     for i in range(10):
         print(i)
@@ -184,4 +185,4 @@ ax.legend(["My SHA512", "Hashlib 512"])
 ax.set_xlabel("Number of random bytes")
 ax.set_ylabel("Time taken (seconds)")
 
-plt.show()
+plt.show()"""

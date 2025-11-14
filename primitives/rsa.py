@@ -2,6 +2,7 @@ import random
 from sympy import nextprime
 from typing import Literal
 from global_primitives import *
+from hashing import SHA2
 
 class RSA:
 
@@ -27,8 +28,9 @@ class RSA:
     def encrypt(key: tuple[int, int], plaintext: bytes) -> bytes:
         e, N = key
         l = (N.bit_length() + 7) // 8
+        lN = math.ceil(N.bit_length() / 8.0)
 
-        plaintext_int = int.from_bytes(plaintext)
+        plaintext_int = int.from_bytes(RSA.OAEP_pad(plaintext, lN))
         ciphertext_int = pow(plaintext_int, e, N)
         ciphertext = ciphertext_int.to_bytes(l)
 
@@ -38,19 +40,67 @@ class RSA:
     def decrypt(key: tuple[int, int], ciphertext: bytes):
         d, N = key
         l = (N.bit_length() + 7) // 8
+        lN = math.ceil(N.bit_length()/8.0)
 
         ciphertext_int = int.from_bytes(ciphertext)
         plaintext_int = pow(ciphertext_int, d, N)
-        plaintext = plaintext_int.to_bytes(l)
+        plaintext = RSA.OAEP_unpad(plaintext_int.to_bytes(l), lN)
 
         return plaintext
 
+    @staticmethod
+    def MGF1(seed: bytes, l: int) -> bytes:
+
+        hLen = 64
+        if l > hLen*(2<<32):
+            raise ValueError("MGF1: Length too long.")
+        T = b""
+        for c in range(math.ceil(l/hLen)):
+            C = c.to_bytes(4, byteorder="big")
+
+            T = T + SHA2("512", seed + C).digest()
+        return T[:l]
+
+    @staticmethod
+    def OAEP_pad(message: bytes, modulus_length: int, label: bytes=b"") -> bytes:
+        k = modulus_length
+        hLen = 32
+        mLen = len(message)
+        PS = b"\x00" * (k - mLen - 2 * hLen - 2)
+        lHash = SHA2("256", label).digest()
+        DB = lHash + PS + b"\x01" + message
+        seed = random.randbytes(hLen)
+        dbMask = RSA.MGF1(seed, k - hLen - 1)
+        maskedDB = bytes(x ^ y for x, y in zip(DB, dbMask))
+        seedMask = RSA.MGF1(maskedDB, hLen)
+        maskedSeed = bytes(x ^ y for x, y in zip(seed, seedMask))
+        EM = b"\x00" + maskedSeed + maskedDB
+        return EM
+
+    @staticmethod
+    def OAEP_unpad(encoded_message: bytes, modulus_length: int, label: bytes=b"") -> (bytes, bool   ):
+        k = modulus_length
+        hLen = 32
+        maskedSeed, maskedDB = encoded_message[1:1+hLen], encoded_message[1+hLen:]
+        seedMask = RSA.MGF1(maskedDB, hLen)
+        seed = bytes(x ^ y for x, y in zip(maskedSeed, seedMask))
+        dbMask = RSA.MGF1(seed, k - hLen - 1)
+        DB = bytes(x ^ y for x, y in zip(maskedDB, dbMask))
+        lHash, DB = DB[:hLen], DB[hLen:]
+        mLen = k - 2 * hLen -2
+        while DB[0] == 0:
+            mLen -= 1
+            DB = DB[1:]
+        b1, M = DB[:1], DB[1:]
+        return M, lHash == SHA2("256", label).digest()
 
 
-p, s = RSA.new_key_pair(1024)
-print(p)
-print(s)
+p = b"bastard"
 
-m = b"McLovin"
-print(m)
-print(RSA.decrypt(s, RSA.encrypt(p, m)))
+pu, pr = RSA.new_key_pair(1024)
+
+c = RSA.encrypt(pu, p)
+
+d = RSA.decrypt(pr, c)
+
+print(d)

@@ -1,19 +1,5 @@
 import math, random, sympy
 
-def TEMPegcd(a, b):
-    if a == 0:
-        return b, 0, 1
-    else:
-        g, y, x = TEMPegcd(b % a, a)
-        return g, x - (b // a) * y, y
-
-def TEMPmodinv(a, m):
-    g, x, y = extended_euclidean_algorithm(a, m)
-    if g != 1:
-        raise ValueError('modular inverse does not exist')
-    else:
-        return x % m
-
 def euclidean_algorithm(a: int, b: int) -> int:
     if a < 0 or b < 0: raise ValueError("Extended Euclidean Algorithm: Inputs must be non-negative")
     if a < b:

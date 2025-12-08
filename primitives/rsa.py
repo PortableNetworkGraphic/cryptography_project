@@ -3,6 +3,7 @@ from sympy import nextprime
 from typing import Literal
 from global_primitives import *
 from hashing import SHA2
+from pyinstrument import Profiler
 
 class RSA:
 
@@ -107,18 +108,12 @@ class RSA:
         b1, M = DB[:1], DB[1:]
         return M, lHash == SHA2("256", label).digest()
 
+pu, pr = RSA.new_key_pair(4096)
 
-ts = set()
-pu, pr = RSA.new_key_pair(1024)
+p = random.randbytes(6)
 
-for i in range(1000):
-    print(i)
-    p = random.randbytes(6)
+c = RSA.encrypt(pu, p)
 
-    c = RSA.encrypt(pu, p)
+d = RSA.decrypt(pr, c)
 
-    d = RSA.decrypt(pr, c)
-
-    ts.add(d==p)
-
-print(ts)
+print(d==p)

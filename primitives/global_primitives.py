@@ -72,3 +72,6 @@ def modular_multiplicative_inverse(a: int, p: int, q: int) -> int:
 
     # Account for f d is negative
     return d if d >= 0 else d + lambdaN
+
+
+print(extended_euclidean_algorithm(151, 412))

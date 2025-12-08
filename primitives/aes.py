@@ -25,5 +25,3 @@ def AESdecrypt(version: str, input_filepath: str, output_filepath: str, key: int
         aeslib.AES128_CTR_decrypt.restypes = None
         aeslib.AES128_CTR_decrypt(input_filepath.encode(), output_filepath.encode(), key_words, nonce)
 
-AESencrypt("128", "test.txt", "encrypted_test.bin", 0x2B7E151628AED2A6ABF7158809CF4F3C, 0x2B7E1516)
-AESdecrypt("128", "encrypted_test.bin", "decrypted_test.txt", 0x2B7E151628AED2A6ABF7158809CF4F3C, 0x2B7E1516)

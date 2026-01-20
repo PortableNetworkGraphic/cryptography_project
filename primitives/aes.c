@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <time.h>
-#include <ctype.h>
 
 typedef uint32_t word;
 
@@ -208,7 +206,8 @@ void AES128_ECB_encrypt(const char *input_path, const char *output_path, const w
 	
 }
 
-__declspec(dllexport) void AES128_CTR_encrypt(const char *input_path, const char *output_path, const word *key, uint64_t nonce) {
+__declspec(dllexport) void AES128_CTR_encrypt(const char *input_path, 
+const char *output_path, const word *key, uint64_t nonce) {
 	uint8_t buffer[16];
 	uint8_t bytpad[16];
 	
@@ -341,19 +340,4 @@ __declspec(dllexport) void AES256_CTR_encrypt(const char *input_path, const char
 
 __declspec(dllexport) void AES256_CTR_decrypt(const char *input_path, const char *output_path, const word *key, uint64_t nonce) {
 	AES256_CTR_encrypt(input_path, output_path, key, nonce);
-}
-
-int main() {
-	
-	
-	word key[4] = {0x2B7E1516, 0x28AED2A6, 0xABF71588, 0x09CF4F3C};
-	uint64_t Nonce = 0xFFFFFFEFFFFFFFFF;
-	const char *ipath = "C:\\Users\\danal\\Downloads\\sCO0nncPTlY.webm";
-	const char *epath = "C:\\Users\\danal\\Downloads\\ENCRYPTEDisrael.bin";
-	const char *dpath = "C:\\Users\\danal\\Downloads\\DECRYPTEDisrael.webm";
-
-	AES128_CTR_encrypt(ipath, epath, key, Nonce);
-	printf(":3\n");
-	AES128_CTR_decrypt(epath, dpath, key, Nonce);
-	return 0; 
 }

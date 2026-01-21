@@ -91,4 +91,4 @@ def SHA2bp(path: str, version: str="256") -> int:
         raise ValueError(f"SHA2 version \"{version}\" is invalid.")
 
 
-print(hex(SHA2bp(r"C:\Users\danal\Downloads\test.txt", "224")))
+print(hex(SHA2bp(r"C:\Users\danal\Downloads\test.txt")))

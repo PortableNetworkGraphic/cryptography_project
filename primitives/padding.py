@@ -78,12 +78,3 @@ def ISO7816_unpad(data: bytes, pad_size: int) -> bytes:
         return data[:-1]
     else:
         raise ValueError(f"Padding is inconsistent.")
-
-def OAEP_pad(MGF, Hash, hLen: int, k, M: bytes, mLen, L: bytes) -> bytes:
-    lHash = Hash(L)
-    PS = b"\x00" * (k-mLen*hLen-2)
-    DB = lHash + PS + b"\x01" + M
-    seed = random.randbytes(hLen)
-    dbMask = MGF(seed, k-hLen-1)
-
-    # maskedSeed =

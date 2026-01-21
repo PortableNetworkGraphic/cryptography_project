@@ -3,7 +3,6 @@ from sympy import nextprime
 from typing import Literal
 from global_primitives import *
 from hashing import SHA2
-from pyinstrument import Profiler
 
 class RSA:
 
@@ -45,9 +44,9 @@ class RSA:
 
         ciphertext_int = int.from_bytes(ciphertext)
         plaintext_int = pow(ciphertext_int, d, N)
-        plaintext, verification = RSA.OAEP_unpad(plaintext_int.to_bytes(l), lN)
+        plaintext = RSA.OAEP_unpad(plaintext_int.to_bytes(l), lN)
 
-        if verification: return plaintext
+        return plaintext
 
     @staticmethod
     def MGF1(seed: bytes, l: int) -> bytes:
@@ -64,22 +63,9 @@ class RSA:
 
     @staticmethod
     def OAEP_pad(message: bytes, modulus_length: int, label: bytes=b"") -> bytes:
-
         k = modulus_length
         hLen = 32
         mLen = len(message)
-
-        """
-        RSA Key Size (bits) Max Msg (SHA-256)   Max Msg (SHA-512)
-        1024                62                  n/a
-        2048                190                 126
-        4096                446                 382
-        """
-        if k == 128 and hLen == 64:
-            raise ValueError("SHA512 based OAEP is invalid for 1024 bit RSA.")
-        elif mLen > k - 2 * hLen - 2:
-            raise ValueError(f"The maximum input size for RSA with {str(k * 8)} bits and SHA{str(hLen * 8)} based padding is {str(k - 2 * hLen - 2)}.")
-
         PS = b"\x00" * (k - mLen - 2 * hLen - 2)
         lHash = SHA2("256", label).digest()
         DB = lHash + PS + b"\x01" + message
@@ -108,12 +94,13 @@ class RSA:
         b1, M = DB[:1], DB[1:]
         return M, lHash == SHA2("256", label).digest()
 
-pu, pr = RSA.new_key_pair(4096)
 
-p = random.randbytes(6)
+p = b"bastard"
+
+pu, pr = RSA.new_key_pair(1024)
 
 c = RSA.encrypt(pu, p)
 
 d = RSA.decrypt(pr, c)
 
-print(d==p)
+print(d)

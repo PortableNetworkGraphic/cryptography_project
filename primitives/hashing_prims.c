@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 #include <ctype.h>
 
@@ -74,7 +73,7 @@ uint64_t rotr64(uint64_t x, int n) {
 	return (x >> n | (x << (64-n)));
 }
 
-void update_hash_state256(SHA256_hash_state *state, const uint8_t *data) {
+__declspec(dllexport) void update_hash_state256(SHA256_hash_state *state, const uint8_t *data) {
 	uint32_t w[64];
 	
 	uint32_t a = state->a;
@@ -136,7 +135,7 @@ void update_hash_state256(SHA256_hash_state *state, const uint8_t *data) {
 		
 } 
 
-void update_hash_state512(SHA512_hash_state *state, const uint8_t *data) {
+__declspec(dllexport) void update_hash_state512(SHA512_hash_state *state, const uint8_t *data) {
 	uint64_t w[80];
 	
 	uint64_t a = state->a;

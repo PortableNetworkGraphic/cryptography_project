@@ -1,3 +1,5 @@
+
+
 def main() -> None:
     print(0)
 

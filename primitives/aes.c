@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -206,8 +205,7 @@ void AES128_ECB_encrypt(const char *input_path, const char *output_path, const w
 	
 }
 
-__declspec(dllexport) void AES128_CTR_encrypt(const char *input_path, 
-const char *output_path, const word *key, uint64_t nonce) {
+__declspec(dllexport) void AES128_CTR_encrypt(const char *input_path, 	const char *output_path, const word *key, uint64_t nonce) {
 	uint8_t buffer[16];
 	uint8_t bytpad[16];
 	

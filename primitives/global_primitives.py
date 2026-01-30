@@ -68,10 +68,7 @@ def modular_multiplicative_inverse(a: int, p: int, q: int) -> int:
     lambdaN = ((p-1) * (q-1)) // euclidean_algorithm(p-1, q-1)
 
     # Uses lambda n to find the multiplicative inverse of the input a mod pq
-    d = extended_euclidean_algorithm_x(lambdaN, a)
+    d = eeax(lambdaN, a)
 
     # Account for f d is negative
     return d if d >= 0 else d + lambdaN
-
-
-print(extended_euclidean_algorithm(151, 412))

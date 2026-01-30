@@ -78,3 +78,15 @@ def ISO7816_unpad(data: bytes, pad_size: int) -> bytes:
         return data[:-1]
     else:
         raise ValueError(f"Padding is inconsistent.")
+
+def SHA_pad(data: bytes, pad_size: [64, 128], l: int) -> bytes:
+    if not isinstance(data, bytes): raise TypeError(f"Data must be bytes, not \'{type(data)}\'.")
+    if not isinstance(pad_size, int): raise TypeError(f"Padding Size must be int, not \'{type(pad_size)}\'.")
+    if pad_size not in [64, 128]: raise ValueError(f"Padding Size must be 512 or 1024 bits, not {pad_size}.")
+    r = {64:56, 128:112}[pad_size]
+    if l > 2**pad_size: raise ValueError("Data must be less than 2^64 bits.")
+    data +=  b"\x80"
+    while len(data) % r !=0:
+        data += b"\x00"
+    data += l.to_bytes(pad_size-r)
+    return data

@@ -1,8 +1,10 @@
-import random
+import pyinstrument
 from sympy import nextprime
 from typing import Literal
-from global_primitives import *
-from hashing import SHA2
+import random
+import math
+from global_primitives import euclidean_algorithm, extended_euclidean_algorithm_x as eeax
+from hashing import SHA2bs
 
 class RSA:
 
@@ -19,7 +21,7 @@ class RSA:
 
             lambdaN = ((p - 1) * (q - 1)) // euclidean_algorithm(p - 1, q - 1)
 
-        d = extended_euclidean_algorithm_x(lambdaN, e) % lambdaN
+        d = eeax(lambdaN, e) % lambdaN
         N = p * q
 
         return (e, N), (d, N)
@@ -58,7 +60,7 @@ class RSA:
         for c in range(math.ceil(l/hLen)):
             C = c.to_bytes(4, byteorder="big")
 
-            T = T + SHA2("512", seed + C).digest()
+            T = T + SHA2bs(seed + C, "512").digest().to_bytes(512//8)
         return T[:l]
 
     @staticmethod
@@ -67,7 +69,7 @@ class RSA:
         hLen = 32
         mLen = len(message)
         PS = b"\x00" * (k - mLen - 2 * hLen - 2)
-        lHash = SHA2("256", label).digest()
+        lHash = SHA2bs(label, "256").digest().to_bytes(256//8)
         DB = lHash + PS + b"\x01" + message
         seed = random.randbytes(hLen)
         dbMask = RSA.MGF1(seed, k - hLen - 1)
@@ -92,11 +94,12 @@ class RSA:
             mLen -= 1
             DB = DB[1:]
         b1, M = DB[:1], DB[1:]
-        return M, lHash == SHA2("256", label).digest()
+        return M, lHash == SHA2bs(label, "256").digest().to_bytes(256//8)
 
+P = pyinstrument.Profiler()
+p = b"mr nagib"
 
-p = b"bastard"
-
+P.start()
 pu, pr = RSA.new_key_pair(1024)
 
 c = RSA.encrypt(pu, p)
@@ -104,3 +107,5 @@ c = RSA.encrypt(pu, p)
 d = RSA.decrypt(pr, c)
 
 print(d)
+P.stop()
+

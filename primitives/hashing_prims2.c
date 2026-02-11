@@ -78,7 +78,8 @@ void sha256_init(sha256_ctx *ctx, const size_t vers) {
 			for (int i=0; i<8; i++) ctx->h[i] = initSHA256[i];
 			break;
 		default:
-			abort();
+			for (int i=0; i<8; i++) ctx->h[i] = initSHA256[i];
+			break;
 	}
 }
 

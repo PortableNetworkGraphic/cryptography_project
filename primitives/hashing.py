@@ -1,4 +1,5 @@
 import os
+import copy
 import random
 import pyinstrument
 import hashlib
@@ -13,36 +14,6 @@ def concatenate(ints: list | tuple, size: int):
     for i in ints:
         res = (res << size) | i
     return res
-
-class SHA256_hash_state(ctypes.Structure):
-    _fields_ = [
-        ("a", ctypes.c_uint32),
-        ("b", ctypes.c_uint32),
-        ("c", ctypes.c_uint32),
-        ("d", ctypes.c_uint32),
-        ("e", ctypes.c_uint32),
-        ("f", ctypes.c_uint32),
-        ("g", ctypes.c_uint32),
-        ("h", ctypes.c_uint32),
-    ]
-
-    def out(self):
-        return concatenate([self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h], 32)
-
-class SHA512_hash_state(ctypes.Structure):
-    _fields_ = [
-        ("a", ctypes.c_uint64),
-        ("b", ctypes.c_uint64),
-        ("c", ctypes.c_uint64),
-        ("d", ctypes.c_uint64),
-        ("e", ctypes.c_uint64),
-        ("f", ctypes.c_uint64),
-        ("g", ctypes.c_uint64),
-        ("h", ctypes.c_uint64),
-    ]
-
-    def out(self):
-        return concatenate([self.a, self.b, self.c, self.d, self.e, self.f, self.g, self.h], 64)
 
 class SHA256_ctx(ctypes.Structure):
     _fields_ = [
@@ -68,7 +39,7 @@ class SHA512_ctx(ctypes.Structure):
 
 class SHA2:
 
-    def __init__(self, initial_data: bytes|str=b"", vers: str="256", _chunksize: int=4096):
+    def __init__(self, initial_data: bytes|str=b"", vers: str="256", _chunksize: int=1024*512):
 
         self._chunksize = _chunksize
 
@@ -125,19 +96,33 @@ class SHA2:
                     self.updatectx(self.ctx, buf, n)
 
     def digest(self):
-        self.digestctx(self.ctx)
+        temp = copy.deepcopy(self.ctx)
 
-        return self.ctx.out() >> (self.kind - self.len)
+        self.digestctx(temp)
 
-f, ax = plt.subplots(1)
+        return temp.out() >> (self.kind - self.len)
 
-for name, size, col, csize in (("512", 512, "#dc7a62", 1024*512), ("512", 512, "green", 1024**2),):#(("224", 224, "red"), ("256", 256, "orange"), ("384", 384, "yellow"), ("512", 512, "green"), ("512/224", 224, "blue"), ("512/256", 256, "pink")):
+path = "test.txt"
+s = SHA2(path, vers="256")
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+print(hex(s.digest()))
+
+"""
+for name, size, col, csize in (("512", 512, "#dc7a62", 1024*512), ("512", 512, "green", 1024),):#(("224", 224, "red"), ("256", 256, "orange"), ("384", 384, "yellow"), ("512", 512, "green"), ("512/224", 224, "blue"), ("512/256", 256, "pink")):
 
     x, y = [], []
-    for i in range(1000):
+    for i in range(100):
 
         with open("test.txt", 'wb') as f:
-            f.write(random.randbytes(random.randint(1, round(10**7))))
+            f.write(random.randbytes(random.randint(1, round(10**6))))
             if i % 25 == 0:
                 print(name, i)
 
@@ -165,4 +150,4 @@ ax.set_xlim(xmin=0)
 plt.xlabel("Bytes (B)")
 plt.ylabel("Time (s)")
 
-plt.show()
+plt.show()"""

@@ -47,6 +47,7 @@ class SHA2:
         self.lib = ctypes.CDLL("./hashing2.dll")
         self.kind = 256 if vers in ("224", "256") else 512
         self.len = int(vers[-3:])
+
         if self.kind == 256:
 
             self.ctx = SHA256_ctx()
@@ -101,19 +102,6 @@ class SHA2:
         self.digestctx(temp)
 
         return temp.out() >> (self.kind - self.len)
-
-path = "test.txt"
-s = SHA2(path, vers="256")
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
-print(hex(s.digest()))
 
 """
 for name, size, col, csize in (("512", 512, "#dc7a62", 1024*512), ("512", 512, "green", 1024),):#(("224", 224, "red"), ("256", 256, "orange"), ("384", 384, "yellow"), ("512", 512, "green"), ("512/224", 224, "blue"), ("512/256", 256, "pink")):

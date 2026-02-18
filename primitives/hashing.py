@@ -103,6 +103,34 @@ class SHA2:
 
         return temp.out() >> (self.kind - self.len)
 
+def byte_xor(*args: bytes) -> bytes:
+    r = 0
+    for val in args:
+        r ^= int.from_bytes(val, byteorder="big")
+    return r.to_bytes(len(args[0]))
+
+def HMAC_SHA2(key: bytes, source: str | bytes, vers: str="256") -> bytes:
+    Hi = SHA2(vers=vers)
+    Ho = SHA2(vers=vers)
+    bl = Hi.kind//4
+
+    if len(key) > bl:
+        kd = SHA2(key, vers=vers).digest()
+    else:
+        kd = key + b"\x00" * (bl-len(key))
+
+    opad = bl * b"\x5c"
+    ipad = bl * b"\x36"
+
+    Hi.update(byte_xor(kd, ipad))
+    Hi.update(source)
+    Ho.update(byte_xor(kd, opad))
+    Ho.update(Hi.digest().to_bytes(Hi.len//8))
+    return Ho.digest().to_bytes(Ho.len//8)
+
+b = random.randbytes(1024)
+print(HMAC_SHA2(b"key", "b".encode(), vers="512").hex())
+
 """
 for name, size, col, csize in (("512", 512, "#dc7a62", 1024*512), ("512", 512, "green", 1024),):#(("224", 224, "red"), ("256", 256, "orange"), ("384", 384, "yellow"), ("512", 512, "green"), ("512/224", 224, "blue"), ("512/256", 256, "pink")):
 

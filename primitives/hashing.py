@@ -1,4 +1,5 @@
 import os
+import hmac
 import copy
 import random
 import pyinstrument
@@ -84,7 +85,7 @@ class SHA2:
 
         self.update(initial_data)
 
-    def update(self, source: str | bytes):
+    def update(self, source: str | bytes) -> None:
         if isinstance(source, bytes):
             buf = (ctypes.c_uint8 * len(source))(*source)
             self.updatectx(self.ctx, buf, len(buf))
@@ -96,18 +97,15 @@ class SHA2:
                     ctypes.memmove(buf, chunk, n)
                     self.updatectx(self.ctx, buf, n)
 
-    def digest(self):
+    def digest(self) -> bytes:
         temp = copy.deepcopy(self.ctx)
 
         self.digestctx(temp)
 
-        return temp.out() >> (self.kind - self.len)
+        return (temp.out() >> (self.kind - self.len)).to_bytes(length=self.len//8)
 
-def byte_xor(*args: bytes) -> bytes:
-    r = 0
-    for val in args:
-        r ^= int.from_bytes(val, byteorder="big")
-    return r.to_bytes(len(args[0]))
+def byte_xor(a: bytes, b: bytes) -> bytes:
+    return bytes(x ^ y for x, y in zip(a, b))
 
 def HMAC_SHA2(key: bytes, source: str | bytes, vers: str="256") -> bytes:
     Hi = SHA2(vers=vers)
@@ -116,8 +114,10 @@ def HMAC_SHA2(key: bytes, source: str | bytes, vers: str="256") -> bytes:
 
     if len(key) > bl:
         kd = SHA2(key, vers=vers).digest()
-    else:
-        kd = key + b"\x00" * (bl-len(key))
+    else: kd = key
+
+    kd += b"\x00" * (bl-len(kd))
+
 
     opad = bl * b"\x5c"
     ipad = bl * b"\x36"
@@ -125,11 +125,18 @@ def HMAC_SHA2(key: bytes, source: str | bytes, vers: str="256") -> bytes:
     Hi.update(byte_xor(kd, ipad))
     Hi.update(source)
     Ho.update(byte_xor(kd, opad))
-    Ho.update(Hi.digest().to_bytes(Hi.len//8))
-    return Ho.digest().to_bytes(Ho.len//8)
+    Ho.update(Hi.digest())
+    return Ho.digest()
 
-b = random.randbytes(1024)
-print(HMAC_SHA2(b"key", "b".encode(), vers="512").hex())
+"""ts = {"Correct": 0, "Incorrect": 0}
+for i in range(100):
+    b = random.randbytes(1024**2)
+    k = random.randbytes(1024)
+    t1 = (HMAC_SHA2(k, b, vers="512").hex())
+    t2 = (hmac.new(k, b, hashlib.sha512).digest().hex())
+    if t1==t2: ts["Correct"] += 1
+    else: ts["Incorrect"] += 1
+print(ts)"""
 
 """
 for name, size, col, csize in (("512", 512, "#dc7a62", 1024*512), ("512", 512, "green", 1024),):#(("224", 224, "red"), ("256", 256, "orange"), ("384", 384, "yellow"), ("512", 512, "green"), ("512/224", 224, "blue"), ("512/256", 256, "pink")):

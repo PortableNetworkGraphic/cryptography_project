@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 typedef uint32_t word;
 
@@ -470,4 +471,68 @@ __declspec(dllexport) void AES256_CTR_encrypt(const char *input_path, const char
 
 __declspec(dllexport) void AES256_CTR_decrypt(const char *input_path, const char *output_path, const word *key, uint64_t nonce) {
 	AES256_CTR_encrypt(input_path, output_path, key, nonce);
+}
+
+typedef struct {
+	word key_schedule[60];
+	size_t Nk;
+	size_t Nr;
+	uint32_t nonctr[4];
+} AES_ctx;
+
+
+
+__declspec(dllexport) void AES_ctx_init(AES_ctx *ctx, uint8_t *key, size_t kLen, uint64_t nonce) {
+	
+	switch (kLen) {
+		case 128:
+			ctx->Nk = 4;
+			ctx->Nr = 10;
+			break;
+		case 192:
+			ctx->Nk = 6;
+			ctx->Nr = 12;
+			break;
+		case 256:
+			ctx->Nk = 8;
+			ctx->Nr = 14;
+			break;
+	}
+	
+	word key_words[8];
+	for(size_t i=0;i<ctx->Nk;i++) {
+		key_words[i] = key[4*i] << 24 | key[4*i+1] << 16 | key[4*i+2] << 8 | key[4*i+3];
+	}
+	
+	KeyExpansion(key_words, ctx->key_schedule, ctx->Nk);
+	ctx->nonctr[0] = nonce >> 32;
+	ctx->nonctr[1] = (word)nonce;
+	ctx->nonctr[2] = (word)nonce;
+	ctx->nonctr[3] = (word)nonce;
+}
+
+__declspec(dllexport) void AES_CTR_encrypt_NEW(AES_ctx *ctx, uint8_t *data, size_t const len) {
+
+	uint8_t bytpad[16];
+
+	word xorpad[4];
+
+	for(size_t i=0; i<len; i++) {
+		if(i % 16==0) {
+			Cipher(xorpad, ctx->nonctr, ctx->Nr, ctx->key_schedule);
+			ctx->nonctr[3] += 1;
+			if(ctx->nonctr[3] == 0) {
+				ctx->nonctr[2] += 1;	
+			}
+			
+			for(int i=0; i<4; i++) {
+				bytpad[4*i  ] = (uint8_t)(xorpad[i] >> 24) & 0xFF;
+				bytpad[4*i+1] = (uint8_t)(xorpad[i] >> 16) & 0xFF;
+				bytpad[4*i+2] = (uint8_t)(xorpad[i] >>  8) & 0xFF;
+				bytpad[4*i+3] = (uint8_t)(xorpad[i]      ) & 0xFF;
+			}
+		}
+		
+		data[i] ^= bytpad[i%16];
+	}
 }

@@ -4,7 +4,6 @@ import copy
 import random
 import pyinstrument
 import hashlib
-from padding import SHA_pad
 import ctypes
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,7 +44,7 @@ class SHA2:
         self._chunksize = _chunksize
 
         self.vers = vers
-        self.lib = ctypes.CDLL("./hashing2.dll")
+        self.lib = ctypes.CDLL(r"C:\Users\danal\PycharmProjects\cryptography_project\primitives\hashing.dll")
         self.kind = 256 if vers in ("224", "256") else 512
         self.len = int(vers[-3:])
 

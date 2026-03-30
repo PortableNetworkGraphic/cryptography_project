@@ -1,5 +1,5 @@
 import ctypes
-
+from primitives.hashing import SHA2
 
 class AES_ctx(ctypes.Structure):
     _fields_ = [
@@ -32,19 +32,26 @@ class AES:
 
         self.init(self.ctx, key_ctypes, key_length, self.nonce)
 
-    def encrypt_bytes(self, data: bytes) -> tuple[bytes, int]:
+    def encrypt_bytes(self, data: bytes, returnhash: bool=False) -> tuple[bytes, int] | tuple[bytes, int, bytes]:
         buffer = (ctypes.c_uint8 * len(data))(*data)
         self.cipher(ctypes.byref(self.ctx), buffer, len(data))
-        return bytes(buffer), len(data)
+        if not returnhash:
+            return bytes(buffer), len(data)
+        else:
+            return bytes(buffer), len(data), SHA2(data).digest()
 
-    def encrypt_file(self, source: str, new_file: str) -> int:
+    def encrypt_file(self, source: str, new_file: str, returnhash: bool=False) -> int | tuple[int, bytes]:
         with open(source, 'rb') as sf, open(new_file, 'wb') as nf:
             buf = (ctypes.c_uint8 * self._chunksize)()
             nbytes = 0
+            if returnhash: hashfunc = SHA2()
             while chunk := sf.read(self._chunksize):
+                if returnhash: hashfunc.update(chunk)
                 n = len(chunk)
                 nbytes += n
                 ctypes.memmove(buf, chunk, n)
                 self.cipher(ctypes.byref(self.ctx), buf, n)
                 nf.write(bytes(buf)[:n])
-            return nbytes
+            if not returnhash:
+                return nbytes
+            else: return nbytes, hashfunc.digest()

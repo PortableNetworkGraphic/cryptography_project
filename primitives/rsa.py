@@ -27,7 +27,7 @@ class RSA:
         return (e, N), (d, N)
 
     @staticmethod
-    def encrypt(key: tuple[int, int], plaintext: bytes) -> bytes:
+    def encrypt(key: tuple[int, int], plaintext: bytes) -> (bytes, bool):
         e, N = key
         l = (N.bit_length() + 7) // 8
         lN = math.ceil(N.bit_length() / 8.0)
@@ -39,16 +39,16 @@ class RSA:
         return ciphertext
 
     @staticmethod
-    def decrypt(key: tuple[int, int], ciphertext: bytes):
+    def decrypt(key: tuple[int, int], ciphertext: bytes) -> bytes:
         d, N = key
         l = (N.bit_length() + 7) // 8
         lN = math.ceil(N.bit_length()/8.0)
 
         ciphertext_int = int.from_bytes(ciphertext)
         plaintext_int = pow(ciphertext_int, d, N)
-        plaintext = RSA.OAEP_unpad(plaintext_int.to_bytes(l), lN)
+        plaintext, v = RSA.OAEP_unpad(plaintext_int.to_bytes(l), lN)
 
-        return plaintext
+        return plaintext, v
 
     @staticmethod
     def MGF1(seed: bytes, l: int) -> bytes:
@@ -80,7 +80,7 @@ class RSA:
         return EM
 
     @staticmethod
-    def OAEP_unpad(encoded_message: bytes, modulus_length: int, label: bytes=b"") -> (bytes, bool   ):
+    def OAEP_unpad(encoded_message: bytes, modulus_length: int, label: bytes=b"") -> (bytes, bool):
         k = modulus_length
         hLen = 32
         maskedSeed, maskedDB = encoded_message[1:1+hLen], encoded_message[1+hLen:]
@@ -95,3 +95,8 @@ class RSA:
             DB = DB[1:]
         b1, M = DB[:1], DB[1:]
         return M, lHash == SHA2(label, "256").digest()
+
+    @staticmethod
+    def public_key_to_bytes(key: tuple[int, int], esize: int=4, klen: int=4096):
+        e, N = key
+        return esize.to_bytes(4) + e.to_bytes(esize) + (klen//8).to_bytes(4) + N.to_bytes(klen//8)

@@ -7,6 +7,8 @@ import json
 from primitives.aes import AES
 from primitives.hashing import SHA2
 from primitives.rsa import RSA
+from primitives.file_encryption import encrypt_file, decrypt_file
+
 
 app = QApplication([])
 
@@ -182,6 +184,7 @@ class MainWindow(QMainWindow):
                 self.destination_input = QLineEdit()
                 self.destination_input.setPlaceholderText("File destination ")
                 self.destination_button = QPushButton("Browse...")
+                self.destination_button.clicked.connect(self.choose_destination)
 
                 self.encryptLeft.addWidget(self.encrypt_file_input)
                 self.encryptLeft.addWidget(self.encrypt_file_input_browse)
@@ -197,14 +200,20 @@ class MainWindow(QMainWindow):
                 self.authchoice = QComboBox()
                 self.authchoice.addItems(["HMAC", "RSA"])
 
+                self.encrpyt_key_select = QComboBox()
+
+                self.encrypt_button = QPushButton("Encrypt")
+                self.encrypt_button.clicked.connect(self.encrypt_from_tab)
+
                 self.encryptRight.addRow("Key Length", self.keylenchoice)
                 self.encryptRight.addRow("Authentification",self.authchoice)
-
+                self.encryptRight.addRow("RSA Key", self.encrpyt_key_select)
+                self.encryptRight.addRow(self.encrypt_button)
 
                 self.encryptLayout.addLayout(self.encryptLeft)
                 self.encryptLayout.addLayout(self.encryptRight)
 
-                self.inferior.addTab(self.encryptWidget, "Encrypt")
+                self.inferior.addTab(self.encryptWidget, "&Encrypt")
 
             self.inferior.setTabPosition(QTabWidget.TabPosition.North)
 
@@ -215,6 +224,18 @@ class MainWindow(QMainWindow):
         self.mainwidget.setLayout(self.mainlayout)
 
         self.setCentralWidget(self.mainwidget)
+
+    def encrypt_from_tab(self):
+        source = self.encrypt_file_input.text()
+        key_name = self.encrpyt_key_select.currentText()
+        print(source, key_name)
+        keys = self.appdata["keys"].values()
+        for key in keys:
+            if key["name"]==key_name:
+                public_key, private_key = key["public_key"], key["private_key"]
+
+
+        encrypt_file()
 
     def choose_destination(self):
         folder = QFileDialog.getExistingDirectory(None, "Select Destination Folder")
@@ -262,11 +283,12 @@ class MainWindow(QMainWindow):
                     fingerprint = data[k].upper()
                     shortened = fingerprint[:4] + "..." + fingerprint[-4:]
                     tabledata[k] = shortened
+                elif k == "name":
+                    self.encrpyt_key_select.addItem(data[k])
 
             print(tabledata)
             for i, val in enumerate(tabledata.values()):
                 self.keysMedia.setItem(count, i, QTableWidgetItem(str(val)))
-
         self.change_password_info(self.appdata, self.p)
 
 
@@ -292,6 +314,9 @@ class MainWindow(QMainWindow):
         self.keysMedia.setHorizontalHeaderLabels([
             "Name", "Email", "Key Size", "Fingerprint"
         ])
+
+        self.encrpyt_key_select.addItems([key["name"] for key in keys.values()])
+
         for row, key in enumerate(keys.values()):
 
             tabledata = {}
